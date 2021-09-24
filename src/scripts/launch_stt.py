@@ -14,6 +14,7 @@ import sounddevice as sd
 import soundfile as sf
 from pynput.keyboard import Key, Listener
 import os
+from dtroslib.helpers import get_package_path
 
 _count = 0
 
@@ -70,7 +71,7 @@ class Recorder:
         self.recording = False
         self.q = queue.Queue()
         self.rec = None
-        self.save_name = '../data/human_speech.wav'
+        self.save_name = get_package_path('speech')+'/data/human_speech.wav'
         self.now_pressed = None
         
 

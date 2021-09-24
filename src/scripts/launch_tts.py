@@ -4,6 +4,7 @@
 import rospy
 from std_msgs.msg import String
 from playsound import playsound
+from dtroslib.helpers import get_package_path
 
 import requests, urllib
 
@@ -42,7 +43,7 @@ def tts(arg):
         # print("TTS mp3 저장")
         # print(response.json())
         response_body = response.content
-        speech_file = 'data/robot_speech.mp3'
+        speech_file = get_package_path('speech')+'data/robot_speech.mp3'
         with open(speech_file, 'wb') as f:
             f.write(response_body)
         playsound(speech_file)
