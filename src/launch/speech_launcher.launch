@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="speech" name="stt_node" type="launch_stt.py" output="screen"/>
+    <node pkg="speech" name="tts_node" type="launch_tts.py" output="screen"/>
+</launch>

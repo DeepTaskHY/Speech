@@ -1,0 +1,4 @@
+sounddevice==0.4.2
+SoundFile==0.10.3.post1
+playsound==1.3.0
+pynput==1.7.3
