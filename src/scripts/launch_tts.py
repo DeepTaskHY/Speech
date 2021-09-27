@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import requests
 import rospy
-from std_msgs.msg import String
-from playsound import playsound
+import urllib
 from dtroslib.helpers import get_package_path
-
-import requests, urllib
+from playsound import playsound
+from std_msgs.msg import String
 
 
 def tts(arg):

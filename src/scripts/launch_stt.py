@@ -1,21 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
-import rospy
-from std_msgs.msg import String
-from std_msgs.msg import Bool
-
 import json
-import requests
-import time
+import os
 import queue
-import threading
+import requests
+import rospy
 import sounddevice as sd
 import soundfile as sf
-from pynput.keyboard import Key, Listener
-import os
+import threading
+import time
 from dtroslib.helpers import get_package_path
+from std_msgs.msg import Bool
+from std_msgs.msg import String
 
 _count = 0
 
