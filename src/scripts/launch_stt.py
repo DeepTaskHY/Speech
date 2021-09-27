@@ -73,8 +73,8 @@ class Recorder:
         self.recording = False
         self.q = queue.Queue()
         self.recorder = None
-        # self.save_name = get_package_path('speech')+'/data/human_speech.wav'
-        self.save_name = '../data/human_speech.wav'
+        self.save_name = get_package_path('speech')+'/data/human_speech.wav'
+        # self.save_name = '../data/human_speech.wav'
         self.now_pressed = None
         
         rospy.Subscriber('/action/recorder_on', Bool, self.switch_toggle)
