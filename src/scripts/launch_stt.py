@@ -4,6 +4,7 @@
 
 import rospy
 from std_msgs.msg import String
+from std_msgs.msg import Bool
 
 import json
 import requests
@@ -17,6 +18,7 @@ import os
 from dtroslib.helpers import get_package_path
 
 _count = 0
+
 
 def to_ros_msg(data):
     global _count
@@ -39,7 +41,6 @@ def to_ros_msg(data):
 
 def stt(audio_file):
 
-    # 네이버 API 예제
     data = open(audio_file, 'rb')  # STT를 진행하고자 하는 음성 파일
     url = 'https://naveropenapi.apigw.ntruss.com/recog/v1/stt?lang=Kor'
 
@@ -58,7 +59,7 @@ def stt(audio_file):
     if rescode == 200:
         text_dict = json.loads(response.text)
         text_data = text_dict['text']
-        rospy.loginfo(text_data)
+        rospy.loginfo('STT : {}'.format(text_data))
     else:
         rospy.loginfo('Error : {}'.format(response.text))
         return ''
@@ -68,12 +69,16 @@ def stt(audio_file):
 
 class Recorder:
     def __init__(self):
+        self.switch_on = False
         self.recording = False
         self.q = queue.Queue()
-        self.rec = None
-        self.save_name = get_package_path('speech')+'/data/human_speech.wav'
+        self.recorder = None
+        # self.save_name = get_package_path('speech')+'/data/human_speech.wav'
+        self.save_name = '../data/human_speech.wav'
         self.now_pressed = None
         
+        rospy.Subscriber('/action/recorder_on', Bool, self.switch_toggle)
+        self.publisher = rospy.Publisher('/recognition/speech', String, queue_size=10)
 
     def record_voice(self):
         with sf.SoundFile(self.save_name, mode='w', samplerate=16000, subtype='PCM_16', channels=1) as f:
@@ -84,60 +89,34 @@ class Recorder:
     def save_voice(self, indata, frames, time, status):
         self.q.put(indata.copy())
 
-    def key_press(self, key):
-        if key is Key.esc:
-            return False
 
-        elif key is not self.now_pressed:
-            self.now_pressed = key
-            self.recording = True
-            self.rec = threading.Thread(target=self.record_voice)
-            print('Start REC')
-            self.rec.start()
-            
-
-    def key_release(self, key):
-        if key == self.now_pressed:
-            self.now_pressed = None
-            self.recording = False
-            self.rec.join()
-            print('Stop REC')
-            text = stt(self.save_name)
-            publisher.publish(to_ros_msg(text))
-            # temp_publisher.publish(text)
-
-        if key == Key.esc:
-            return False
+    def switch_toggle(self, msg):
+        self.switch_on = msg.data
         
+        if self.switch_on is True:
+            if self.recording is True:
+                rospy.loginfo('Recording has started already.')
+                return
+            self.recording = True
+            self.recorder = threading.Thread(target=self.record_voice)
+            rospy.loginfo('Start recording.')
+            self.recorder.start()
 
-    def on(self):
-        with Listener(on_press=self.key_press, on_release=self.key_release, suppress=True) as listener:
-            listener.join()
-
-
+        if self.switch_on is False:
+            if self.recording is False:
+                rospy.loginfo('Recording has stopped already.')
+                return
+            self.recording = False
+            self.recorder.join()
+            rospy.loginfo('Stop recording.')
+            text = stt(self.save_name)
+            self.publisher.publish(to_ros_msg(text))
 
 
 if __name__ == '__main__':
     rospy.init_node('stt_node')
     rospy.loginfo('Start STT')
-    publisher = rospy.Publisher('/recognition/speech', String, queue_size=10)
-    # temp_publisher = rospy.Publisher('/action/speech', String, queue_size=10)
-    recorder = Recorder()
-    print('Press any key...')
-    recorder.on()
     
-    # while(True):
-    #     try:
-    #         if keyboard.is_pressed('q'):
-    #             break
-    #     except:
-    #         print('Press any key before you say something!')
-    #         os.system('pause')
-    #         rec_file = recorder.record(sec=5)
-    #         text = stt(rec_file)
-    #         publisher.publish(to_ros_msg(text))
-    #         temp_publisher.publish(text)
-    #         time.sleep(0.1)
-            
-
-        
+    rec = Recorder()
+    
+    rospy.spin()
