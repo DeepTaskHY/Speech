@@ -8,6 +8,8 @@ from dtroslib.helpers import get_package_path
 from playsound import playsound
 from std_msgs.msg import String
 
+test_path = get_package_path('speech')
+# test_path = '..'
 
 def tts(arg):
     json_msg = arg.data
@@ -43,7 +45,7 @@ def tts(arg):
         # print("TTS mp3 저장")
         # print(response.json())
         response_body = response.content
-        speech_file = get_package_path('speech')+'data/robot_speech.mp3'
+        speech_file = test_path + 'data/robot_speech.mp3'
         with open(speech_file, 'wb') as f:
             f.write(response_body)
         playsound(speech_file)
