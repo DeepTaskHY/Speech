@@ -14,8 +14,10 @@ from dtroslib.helpers import get_package_path
 from std_msgs.msg import Bool
 from std_msgs.msg import String
 
-_count = 0
+test_path = get_package_path('speech')
+# test_path = '..'
 
+_count = 0
 
 def to_ros_msg(data):
     global _count
@@ -70,8 +72,7 @@ class Recorder:
         self.recording = False
         self.q = queue.Queue()
         self.recorder = None
-        self.save_name = get_package_path('speech')+'/data/human_speech.wav'
-        # self.save_name = '../data/human_speech.wav'
+        self.save_name = test_path + '/data/human_speech.wav'
         self.now_pressed = None
         
         rospy.Subscriber('/action/recorder_on', Bool, self.switch_toggle)
