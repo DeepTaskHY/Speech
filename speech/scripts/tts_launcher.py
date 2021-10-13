@@ -1,12 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
-
 import requests
 import rospy
 import urllib
 from dtroslib.helpers import get_package_path
 from playsound import playsound
 from std_msgs.msg import String
+
 
 test_path = get_package_path('speech')
 # test_path = '..'

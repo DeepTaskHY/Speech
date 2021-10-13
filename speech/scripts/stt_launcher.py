@@ -1,6 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
-
 import json
 import os
 import queue
@@ -74,7 +73,7 @@ class Recorder:
         self.recorder = None
         self.save_name = test_path + '/data/human_speech.wav'
         self.now_pressed = None
-        
+
         rospy.Subscriber('/action/recorder_on', Bool, self.switch_toggle)
         self.publisher = rospy.Publisher('/recognition/speech', String, queue_size=10)
 
@@ -90,7 +89,7 @@ class Recorder:
 
     def switch_toggle(self, msg):
         self.switch_on = msg.data
-        
+
         if self.switch_on is True:
             if self.recording is True:
                 rospy.loginfo('Recording has started already.')
@@ -114,7 +113,7 @@ class Recorder:
 if __name__ == '__main__':
     rospy.init_node('stt_node')
     rospy.loginfo('Start STT')
-    
+
     rec = Recorder()
-    
+
     rospy.spin()
