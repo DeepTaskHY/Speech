@@ -13,8 +13,8 @@ from dtroslib.helpers import get_package_path
 from std_msgs.msg import Bool
 from std_msgs.msg import String
 
+
 test_path = get_package_path('speech')
-# test_path = '..'
 
 _count = 0
 
@@ -78,14 +78,15 @@ class Recorder:
         self.publisher = rospy.Publisher('/recognition/speech', String, queue_size=10)
 
     def record_voice(self):
-        with sf.SoundFile(self.save_name, mode='w', samplerate=16000, subtype='PCM_16', channels=1) as f:
-            with sd.InputStream(samplerate=16000, dtype='int16', channels=1, callback=self.save_voice):
+        mic_index = int(os.environ['MIC_INDEX'])
+
+        with sf.SoundFile(self.save_name, mode='w', subtype='PCM_16', samplerate=44100, channels=1) as f:
+            with sd.InputStream(callback=self.save_voice, dtype='int16', samplerate=44100, channels=1, device=mic_index):
                 while self.recording:
                     f.write(self.q.get())
 
     def save_voice(self, indata, frames, time, status):
         self.q.put(indata.copy())
-
 
     def switch_toggle(self, msg):
         self.switch_on = msg.data
