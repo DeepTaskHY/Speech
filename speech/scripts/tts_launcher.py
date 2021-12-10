@@ -13,7 +13,7 @@ test_path = get_package_path('speech')
 
 def tts(arg):
     json_msg = arg.data
-    text = json_msg['robot_speech']['text'] # 이거는 json 포맷 정해지면 수정
+    # text = json_msg['robot_speech']['text'] # 이거는 json 포맷 정해지면 수정
     text = json_msg
     rospy.loginfo('[TTS] got a new message : {}'.format(text))
 
@@ -45,7 +45,7 @@ def tts(arg):
         # print("TTS mp3 저장")
         # print(response.json())
         response_body = response.content
-        speech_file = test_path + 'data/robot_speech.mp3'
+        speech_file = test_path + '/data/robot_speech.mp3'
         with open(speech_file, 'wb') as f:
             f.write(response_body)
         playsound(speech_file)
