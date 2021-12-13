@@ -10,31 +10,37 @@ import soundfile as sf
 import threading
 import time
 from dtroslib.helpers import get_package_path
+from queue import Queue
 from std_msgs.msg import Bool
 from std_msgs.msg import String
+from tempfile import mkstemp
+from threading import Thread
+from typing import Tuple
 
+from speech import STT
 
 test_path = get_package_path('speech')
 
 _count = 0
 
-def to_ros_msg(data):
+
+def generate_message(text: str):
     global _count
-    json_msg = {
+
+    generated_message = {
         'header': {
+            'id': _count + 1,
+            'timestamp': str(time.time()),
             'source': 'stt',
             'target': ['planning'],
-            'content': 'human_speech',
-            'id': _count+1
+            'content': 'human_speech'
         },
         'human_speech': {
-            'stt': data,
-            'timestamp': str(time.time())
+            'stt': text
         }
     }
-    ros_msg = json.dumps(json_msg, ensure_ascii=False, indent=4)
 
-    return ros_msg
+    return json.dumps(generated_message)
 
 
 def stt(audio_file):
@@ -66,55 +72,134 @@ def stt(audio_file):
 
 
 class Recorder:
-    def __init__(self):
-        self.switch_on = False
-        self.recording = False
-        self.q = queue.Queue()
-        self.recorder = None
-        self.save_name = test_path + '/data/human_speech.wav'
-        self.now_pressed = None
+    __stt: STT = None
+    __speech_publisher: rospy.Publisher = rospy.Publisher('/recognition/speech', String, queue_size=10)
+    __speech_queue: Queue = Queue()
+    __recorder_thread: Thread = None
+    __recorded_file: file = None
 
-        rospy.Subscriber('/action/recorder_on', Bool, self.switch_toggle)
-        self.publisher = rospy.Publisher('/recognition/speech', String, queue_size=10)
+    __switch: bool = False
+    __recording: bool = False
+    __mic_index: int = None
 
-    def record_voice(self):
-        mic_index = int(os.environ['MIC_INDEX'])
+    def __init__(self,
+                 client_id: str,
+                 client_secret: str,
+                 mic_index: int):
 
-        with sf.SoundFile(self.save_name, mode='w', subtype='PCM_16', samplerate=44100, channels=1) as f:
-            with sd.InputStream(callback=self.save_voice, dtype='int16', samplerate=44100, channels=1, device=mic_index):
-                while self.recording:
-                    f.write(self.q.get())
+        self.__stt = STT(client_id=client_id,
+                         client_secret=client_secret)
 
-    def save_voice(self, indata, frames, time, status):
-        self.q.put(indata.copy())
+        self.__mic_index = mic_index
 
-    def switch_toggle(self, msg):
-        self.switch_on = msg.data
+        rospy.Subscriber('/action/recorder_on', Bool, self.callback_switch_toggle)
 
-        if self.switch_on is True:
-            if self.recording is True:
-                rospy.loginfo('Recording has started already.')
-                return
-            self.recording = True
-            self.recorder = threading.Thread(target=self.record_voice)
-            rospy.loginfo('Start recording.')
-            self.recorder.start()
+    @property
+    def switch(self) -> bool:
+        return self.__switch
 
-        if self.switch_on is False:
-            if self.recording is False:
-                rospy.loginfo('Recording has stopped already.')
-                return
+    @switch.setter
+    def switch(self, value: bool):
+        self.__switch = value
+
+    @property
+    def recording(self) -> bool:
+        return self.__recording
+
+    @recording.setter
+    def recording(self, value: bool):
+        self.__recording = value
+
+    @property
+    def recorded_file(self) -> file:
+        if not self.__recorded_file:
+            self.__recorded_file, recorded_path = mkstemp(suffix='.wav')
+
+        return self.__recorded_file
+
+    def unlink_recorded_file(self) -> bool:
+        if not self.__recorded_file:
+            return False
+
+        os.close(self.__recorded_file)
+        self.__recorded_file = None
+
+        return True
+
+    @property
+    def mic_index(self) -> int:
+        return self.__mic_index
+
+    def switch_toggle(self, flag: bool) -> bool:
+        self.switch = flag
+
+        if self.switch:
+            if self.recording:
+                return False
+
+            self.start_record()
+
+        else:
+            if not self.recording:
+                return False
+
+            self.stop_record()
+
+        return True
+
+    def callback_switch_toggle(self, msg: dict):
+        flag = msg.data
+        result = self.switch_toggle(flag)
+
+        if flag:
+            if result:
+                rospy.loginfo('Started recording.')
+            else:
+                rospy.warninfo('Already recording.')
+        else:
+            if result:
+                rospy.loginfo('Recording is finished.')
+                text = self.__stt.request(self.recorded_file)
+                self.__speech_publisher.publish(generate_message(text))
+            else:
+                rospy.warninfo('Not recording.')
+
+    def start_record(self):
+        self.stop_record()
+        self.__recorder_thread = Thread(target=self.callback_record)
+        self.__recorder_thread.start()
+        self.recording = True
+
+    def stop_record(self):
+        if self.__recorder_thread:
+            self.__recorder_thread.join()
+            self.__recorder_thread = None
             self.recording = False
-            self.recorder.join()
-            rospy.loginfo('Stop recording.')
-            text = stt(self.save_name)
-            self.publisher.publish(to_ros_msg(text))
+
+    def callback_record(self):
+        with sd.InputStream(callback=self.callback_recording,
+                            device=self.mic_index,
+                            dtype='int16',
+                            samplerate=44100,
+                            channels=1):
+
+            while self.recording:
+                self.recorded_file.write(self.__speech_queue.get())
+
+    def callback_recording(self, indata):
+        self.__speech_queue.put(indata.copy())
 
 
 if __name__ == '__main__':
     rospy.init_node('stt_node')
     rospy.loginfo('Start STT')
 
-    rec = Recorder()
+    client_id = os.environ['SPEECH_CLIENT_ID']
+    client_secret = os.environ['SPEECH_CLIENT_SECRET']
+    mic_index = int(os.environ['MIC_INDEX'])
+
+    recorder = Recorder(client_id=client_id,
+                        client_secret=client_secret,
+                        mic_index=mic_index)
 
     rospy.spin()
