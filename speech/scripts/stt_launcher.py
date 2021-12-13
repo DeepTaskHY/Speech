@@ -75,8 +75,9 @@ class Recorder:
     __stt: STT = None
     __speech_publisher: rospy.Publisher = rospy.Publisher('/recognition/speech', String, queue_size=10)
     __speech_queue: Queue = Queue()
-    __recorder_thread: Thread = None
-    __recorded_file: file = None
+    __record_thread: Thread = None
+    __record_fd: int = None
+    __record_path: str = None
 
     __switch: bool = False
     __recording: bool = False
@@ -111,18 +112,31 @@ class Recorder:
         self.__recording = value
 
     @property
-    def recorded_file(self) -> file:
-        if not self.__recorded_file:
-            self.__recorded_file, recorded_path = mkstemp(suffix='.wav')
+    def record_fd(self) -> int:
+        if not self.__record_fd:
+            self.generate_record_file()
 
-        return self.__recorded_file
+        return self.__record_fd
 
-    def unlink_recorded_file(self) -> bool:
-        if not self.__recorded_file:
+    @property
+    def record_path(self) -> str:
+        if not self.__record_path:
+            self.generate_record_file()
+
+        return self.__record_path
+
+    def generate_record_file(self):
+        self.unlink_record_file()
+        self.__record_fd, self.__record_path = mkstemp(suffix='.wav')
+
+    def unlink_record_file(self) -> bool:
+        if not self.__record_fd:
             return False
 
-        os.close(self.__recorded_file)
-        self.__recorded_file = None
+        os.unlink(self.__record_path)
+
+        self.__record_fd = None
+        self.__record_path = None
 
         return True
 
@@ -155,39 +169,49 @@ class Recorder:
             if result:
                 rospy.loginfo('Started recording.')
             else:
-                rospy.warninfo('Already recording.')
+                rospy.logwarn('Already recording.')
         else:
             if result:
                 rospy.loginfo('Recording is finished.')
-                text = self.__stt.request(self.recorded_file)
+
+                with os.fdopen(self.record_fd, 'rb') as f:
+                    text = self.__stt.request(f)
+
+                self.unlink_record_file()
                 self.__speech_publisher.publish(generate_message(text))
             else:
-                rospy.warninfo('Not recording.')
+                rospy.logwarn('Not recording.')
 
     def start_record(self):
         self.stop_record()
-        self.__recorder_thread = Thread(target=self.callback_record)
-        self.__recorder_thread.start()
         self.recording = True
+        self.__record_thread = Thread(target=self.callback_record)
+        self.__record_thread.start()
 
     def stop_record(self):
-        if self.__recorder_thread:
-            self.__recorder_thread.join()
-            self.__recorder_thread = None
+        if self.__record_thread:
             self.recording = False
+            self.__record_thread.join()
+            self.__record_thread = None
 
     def callback_record(self):
-        with sd.InputStream(callback=self.callback_recording,
-                            device=self.mic_index,
-                            dtype='int16',
-                            samplerate=44100,
-                            channels=1):
+        with sf.SoundFile(self.record_path,
+                          mode='w',
+                          subtype='PCM_16',
+                          samplerate=44100,
+                          channels=1) as f:
 
-            while self.recording:
-                self.recorded_file.write(self.__speech_queue.get())
+            with sd.InputStream(callback=self.callback_recording,
+                                device=self.mic_index,
+                                dtype='int16',
+                                samplerate=44100,
+                                channels=1):
 
-    def callback_recording(self, indata):
-        self.__speech_queue.put(indata.copy())
+                while self.recording:
+                    f.write(self.__speech_queue.get())
+
+    def callback_recording(self, data, frames, time, status):
+        self.__speech_queue.put(data.copy())
 
 
 if __name__ == '__main__':

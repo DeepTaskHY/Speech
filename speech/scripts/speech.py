@@ -1,6 +1,7 @@
 import json
-from typing import Tuple
+from typing import BinaryIO
 from urllib.parse import urlencode
+import requests
 
 
 class Speech:
@@ -35,7 +36,7 @@ class STT(Speech):
 
         return headers
 
-    def request(self, data: file) -> Tuple[int, str]:
+    def request(self, data: BinaryIO) -> str:
         response = requests.post(self.STT_API_URL,
                                  headers=self.get_headers(),
                                  data=data)
@@ -48,7 +49,7 @@ class STT(Speech):
         parsed_response = json.loads(response.text)
         text = parsed_response['text']
 
-        return status_code, text
+        return text
 
 
 class TTS(Speech):
@@ -101,4 +102,4 @@ class TTS(Speech):
         status_code = response.status_code
         speech = response.content
 
-        return status_code, speech
+        return speech
