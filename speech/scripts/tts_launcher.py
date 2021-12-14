@@ -1,62 +1,94 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-import requests
 import rospy
-import urllib
 from dtroslib.helpers import get_package_path
 from playsound import playsound
 from std_msgs.msg import String
 
+from speech import TTS
+
 
 test_path = get_package_path('speech')
-# test_path = '..'
 
-def tts(arg):
-    json_msg = arg.data
-    # text = json_msg['robot_speech']['text'] # 이거는 json 포맷 정해지면 수정
-    text = json_msg
-    rospy.loginfo('[TTS] got a new message : {}'.format(text))
 
-    encoded_text = urllib.parse.quote(text)
-    data = 'speaker=mijin&speed=0&text=' + encoded_text
+class TTSNode:
+    __tts: TTS = None
 
-    url = 'https://naveropenapi.apigw.ntruss.com/voice/v1/tts'
+    __record_fd: int = None
+    __record_path: str = None
 
-    # url = "https://openapi.naver.com/v1/voice/tts.bin"
-    # request = urllib.request.Request(url)
-    # request.add_header("X-Naver-Client-Id", client_id)
-    # request.add_header("X-Naver-Client-Secret", client_secret)
-    # response = urllib.request.urlopen(request, data=data.encode('utf-8'), headers)
-    # rescode = response.getcode()
+    def __init__(self,
+                 client_id: str,
+                 client_secret: str,
+                 tts_speaker: str,
+                 tts_speed: float = 0):
 
-    client_id = 'jqhycv20tf'  # 인증 정보의 Client ID
-    client_secret = 'EFh6RhwU8DDuLX3O1qaSCqc2jRgu2P6asUl6wmiR'  # 인증 정보의 Client Secret
+        self.__tts = TTS(client_id=client_id,
+                         client_secret=client_secret,
+                         tts_speaker=tts_speaker,
+                         tts_speed=tts_speed)
 
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded',  # Fix
-        'X-NCP-APIGW-API-KEY-ID': client_id,
-        'X-NCP-APIGW-API-KEY': client_secret,
-    }
+        rospy.Subscriber('/action/speech', String, self.callback_speech)
 
-    response = requests.post(url, data=data, headers=headers)
-    rescode = response.status_code
+    @property
+    def record_fd(self) -> int:
+        if not self.__record_fd:
+            self.generate_record_file()
 
-    if rescode == 200:
-        # print("TTS mp3 저장")
-        # print(response.json())
-        response_body = response.content
-        speech_file = test_path + '/data/robot_speech.mp3'
-        with open(speech_file, 'wb') as f:
-            f.write(response_body)
-        playsound(speech_file)
+        return self.__record_fd
 
-    else:
-        rospy.loginfo('Error Code:{}'.format(rescode))
+    @property
+    def record_path(self) -> str:
+        if not self.__record_path:
+            self.generate_record_file()
+
+        return self.__record_path
+
+    def generate_record_file(self):
+        self.unlink_record_file()
+        self.__record_fd, self.__record_path = mkstemp(suffix='.mp3')
+
+    def unlink_record_file(self) -> bool:
+        if not self.__record_fd:
+            return False
+
+        os.unlink(self.__record_path)
+
+        self.__record_fd = None
+        self.__record_path = None
+
+        return True
+
+    def callback_speech(self, msg: dict):
+        text = msg.data
+
+        rospy.loginfo(f'TTS request: {text}')
+
+        speech = self.__tts.request(text)
+
+        if speech:
+            with os.fdopen(self.record_fd, 'wb') as f:
+                f.write(speech)
+
+            playsound(self.record_path)
+            self.unlink_record_file()
+
+        else:
+            rospy.logerror('TTS failed.')
 
 
 if __name__ == '__main__':
-
     rospy.init_node('tts_node')
     rospy.loginfo('Start TTS')
-    rospy.Subscriber('/action/speech', String, tts)
+
+    client_id = os.environ['SPEECH_CLIENT_ID']
+    client_secret = os.environ['SPEECH_CLIENT_SECRET']
+    tts_speaker = os.environ['SPEECH_TTS_SPEAKER']
+    tts_speed = float(os.environ['SPEECH_TTS_SPEED'])
+
+    node = TTSNode(client_id=client_id,
+                   client_secret=client_secret,
+                   tts_speaker=tts_speaker,
+                   tts_speed=tts_speed)
+
     rospy.spin()

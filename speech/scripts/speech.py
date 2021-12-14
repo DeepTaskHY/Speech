@@ -1,7 +1,7 @@
 import json
+import requests
 from typing import BinaryIO
 from urllib.parse import urlencode
-import requests
 
 
 class Speech:
@@ -44,7 +44,7 @@ class STT(Speech):
         status_code = response.status_code
 
         if status_code != 200:
-            return status_code, None
+            return None
 
         parsed_response = json.loads(response.text)
         text = parsed_response['text']
@@ -100,6 +100,10 @@ class TTS(Speech):
                                  data=self.get_body(text))
 
         status_code = response.status_code
+
+        if status_code != 200:
+            return None
+
         speech = response.content
 
         return speech

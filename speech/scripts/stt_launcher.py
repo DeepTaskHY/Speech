@@ -1,23 +1,19 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-import json
 import os
-import queue
-import requests
 import rospy
 import sounddevice as sd
 import soundfile as sf
-import threading
 import time
 from dtroslib.helpers import get_package_path
 from queue import Queue
-from std_msgs.msg import Bool
-from std_msgs.msg import String
+from std_msgs.msg import Bool, String
 from tempfile import mkstemp
 from threading import Thread
 from typing import Tuple
 
 from speech import STT
+
 
 test_path = get_package_path('speech')
 
@@ -43,35 +39,7 @@ def generate_message(text: str):
     return json.dumps(generated_message)
 
 
-def stt(audio_file):
-
-    data = open(audio_file, 'rb')  # STT를 진행하고자 하는 음성 파일
-    url = 'https://naveropenapi.apigw.ntruss.com/recog/v1/stt?lang=Kor'
-
-    client_id = 'jqhycv20tf'  # 인증 정보의 Client ID
-    client_secret = 'EFh6RhwU8DDuLX3O1qaSCqc2jRgu2P6asUl6wmiR'  # 인증 정보의 Client Secret
-
-    headers = {
-        'Content-Type': 'application/octet-stream',  # Fix
-        'X-NCP-APIGW-API-KEY-ID': client_id,
-        'X-NCP-APIGW-API-KEY': client_secret,
-    }
-
-    response = requests.post(url, data=data, headers=headers)
-    rescode = response.status_code
-
-    if rescode == 200:
-        text_dict = json.loads(response.text)
-        text_data = text_dict['text']
-        rospy.loginfo('STT : {}'.format(text_data))
-    else:
-        rospy.loginfo('Error : {}'.format(response.text))
-        return ''
-
-    return text_data
-
-
-class Recorder:
+class STTNode:
     __stt: STT = None
     __speech_publisher: rospy.Publisher = rospy.Publisher('/recognition/speech', String, queue_size=10)
     __speech_queue: Queue = Queue()
@@ -222,8 +190,8 @@ if __name__ == '__main__':
     client_secret = os.environ['SPEECH_CLIENT_SECRET']
     mic_index = int(os.environ['MIC_INDEX'])
 
-    recorder = Recorder(client_id=client_id,
-                        client_secret=client_secret,
-                        mic_index=mic_index)
+    node = STTNode(client_id=client_id,
+                   client_secret=client_secret,
+                   mic_index=mic_index)
 
     rospy.spin()
