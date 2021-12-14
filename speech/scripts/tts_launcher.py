@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+import os
 import rospy
 from dtroslib.helpers import get_package_path
 from playsound import playsound
