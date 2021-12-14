@@ -1,6 +1,6 @@
 import json
 import requests
-from typing import BinaryIO
+from typing import Any, BinaryIO
 from urllib.parse import urlencode
 
 
@@ -74,7 +74,7 @@ class TTS(Speech):
 
     @property
     def tts_speed(self) -> float:
-        return self.__tts_speaker
+        return self.__tts_speed
 
     def get_headers(self) -> dict:
         headers = {
@@ -94,7 +94,7 @@ class TTS(Speech):
 
         return urlencode(body)
 
-    def request(self, text: str):
+    def request(self, text: str) -> Any:
         response = requests.post(self.TTS_API_URL,
                                  headers=self.get_headers(),
                                  data=self.get_body(text))

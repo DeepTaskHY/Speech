@@ -5,6 +5,7 @@ import rospy
 from dtroslib.helpers import get_package_path
 from playsound import playsound
 from std_msgs.msg import String
+from tempfile import mkstemp
 
 from speech import TTS
 
@@ -75,7 +76,7 @@ class TTSNode:
             self.unlink_record_file()
 
         else:
-            rospy.logerror('TTS failed.')
+            rospy.logerr('TTS failed.')
 
 
 if __name__ == '__main__':
