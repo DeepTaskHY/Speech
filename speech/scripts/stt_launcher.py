@@ -20,7 +20,6 @@ test_path = get_package_path('speech')
 
 _count = 0
 
-
 def generate_message(text: str):
     global _count
 
@@ -61,6 +60,7 @@ class STTNode:
                          client_secret=client_secret)
 
         self.__mic_index = mic_index
+        sd.default.device = self.__mic_index
 
         rospy.Subscriber('/action/recorder_on', Bool, self.callback_switch_toggle)
 
@@ -190,7 +190,7 @@ if __name__ == '__main__':
     client_id = os.environ['SPEECH_CLIENT_ID']
     client_secret = os.environ['SPEECH_CLIENT_SECRET']
     mic_index = int(os.environ['MIC_INDEX'])
-
+    
     node = STTNode(client_id=client_id,
                    client_secret=client_secret,
                    mic_index=mic_index)
