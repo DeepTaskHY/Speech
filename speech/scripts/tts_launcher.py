@@ -72,7 +72,7 @@ class TTSNode:
             with os.fdopen(self.record_fd, 'wb') as f:
                 f.write(speech)
 
-            playsound(self.record_path)
+            playsound(self.record_path, block=False)
             self.unlink_record_file()
 
         else:

@@ -60,8 +60,8 @@ class STTNode:
                          client_secret=client_secret)
 
         self.__mic_index = mic_index
-        sd.default.device = self.__mic_index
-
+        sd.default.device = mic_index
+        
         rospy.Subscriber('/action/recorder_on', Bool, self.callback_switch_toggle)
 
     @property
