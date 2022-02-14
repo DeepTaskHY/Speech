@@ -6,6 +6,7 @@ import rospy
 import sounddevice as sd
 import soundfile as sf
 import time
+import re
 from dtroslib.helpers import get_package_path
 from queue import Queue
 from std_msgs.msg import Bool, String
@@ -13,12 +14,56 @@ from tempfile import mkstemp
 from threading import Thread
 from typing import Tuple
 
+
 from speech import STT
 
 
 test_path = get_package_path('speech')
 
 _count = 0
+
+def korean2number(sentence):
+    modified_sentence = sentence
+
+    tens_digit_dict = { 
+        '열': 10, 
+        '스물': 20, 
+        '서른': 30, 
+        '마흔': 40, 
+        '쉰': 50, 
+        '예순': 60, 
+        '일흔': 70, 
+        '여든': 80, 
+        '아흔': 90, 
+    }
+    unit_digit_dict = { 
+        '하나': 1, '한': 1, 
+        '둘': 2, '두': 2, 
+        '셋': 3, '세': 3, 
+        '넷': 4, '네': 4, 
+        '다섯': 5, 
+        '여섯': 6, 
+        '일곱': 7, 
+        '여덟': 8, 
+        '아홉': 9}
+    keys_list = [tens+unit for tens in tens_digit_dict.keys() for unit in unit_digit_dict.keys()]
+    values_list = [tens+unit for tens in tens_digit_dict.values() for unit in unit_digit_dict.values()]
+    zip_iter = zip(keys_list, values_list)
+    mapping_dict_2 = dict(zip_iter)
+    mapping_dict_2['스무'] = 20
+    mapping_dict_1 = dict()
+    mapping_dict_1.update(tens_digit_dict)
+    mapping_dict_1.update(unit_digit_dict)
+    
+    words = re.findall('(' + '|'.join(list(mapping_dict_2.keys())) + ')', sentence)
+    for word in words:
+        modified_sentence = modified_sentence.replace(word, str(mapping_dict_2[word]))
+    words = re.findall('(' + '|'.join(list(mapping_dict_1.keys())) + ')', sentence)
+    for word in words:
+        modified_sentence = modified_sentence.replace(word, str(mapping_dict_1[word]))
+    
+    return modified_sentence
+
 
 def generate_message(text: str):
     global _count
@@ -147,6 +192,7 @@ class STTNode:
                     text = self.__stt.request(f)
 
                 self.unlink_record_file()
+                text = korean2number(text)
                 self.__speech_publisher.publish(generate_message(text))
             else:
                 rospy.logwarn('Not recording.')
